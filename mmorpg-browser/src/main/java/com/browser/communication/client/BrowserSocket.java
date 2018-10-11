@@ -1,21 +1,23 @@
 package com.browser.communication.client;
 
 import com.browser.communication.client.handler.BrowserSocketHandler;
-import org.jboss.netty.bootstrap.ClientBootstrap;
-import org.jboss.netty.channel.*;
-import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
-import org.jboss.netty.handler.codec.string.StringDecoder;
-import org.jboss.netty.handler.codec.string.StringEncoder;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.string.StringDecoder;
+import io.netty.handler.codec.string.StringEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.stereotype.Service;
 
-import java.net.InetSocketAddress;
 import java.util.Scanner;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  *浏览器
@@ -29,31 +31,26 @@ public class BrowserSocket {
 
     public static void clientStart() {
 
-        ExecutorService boss=null;
-        ExecutorService worker =null;
+        Bootstrap bootstrapToServer = new Bootstrap();
+        EventLoopGroup worker=null;
         try {
-            ClientBootstrap bootstrapToServer = new  ClientBootstrap();
+            worker=new NioEventLoopGroup();
 
-            boss = Executors.newCachedThreadPool();
-            worker= Executors.newCachedThreadPool();
+            bootstrapToServer.group(worker)
+                    .channel(NioSocketChannel.class)
+                    .option(ChannelOption.SO_KEEPALIVE, true)
+                    .handler(new ChannelInitializer<SocketChannel>(){
 
-            bootstrapToServer.setFactory(new NioClientSocketChannelFactory(boss, worker));
-
-            bootstrapToServer.setPipelineFactory(new ChannelPipelineFactory() {
-
-                @Override
-                public ChannelPipeline getPipeline() throws Exception {
-                    ChannelPipeline pipeline = Channels.pipeline();
-                    pipeline.addLast("decoder", new StringDecoder());
-                    pipeline.addLast("encoder", new StringEncoder());
-                    pipeline.addLast("clientHandler", new BrowserSocketHandler());
-                    return pipeline;
-                }
-            });
+                        @Override
+                        protected void initChannel(SocketChannel ch) throws Exception {
+                            ch.pipeline().addLast("decoder", new StringDecoder());
+                            ch.pipeline().addLast("encoder", new StringEncoder());
+                            ch.pipeline().addLast("clientHandler", new BrowserSocketHandler());
+                        }
+                    });
 
             //连接服务端
-            ChannelFuture connect = bootstrapToServer.connect(new InetSocketAddress("127.0.0.1", 11111));
-            Channel channel = connect.sync().getChannel();
+            ChannelFuture f=bootstrapToServer.connect("127.0.0.1", 11111).sync();
 
             logger.info("浏览器启动...");
 
@@ -63,14 +60,11 @@ public class BrowserSocket {
                 System.out.println("请输入命令:");
                 String content=input.nextLine();
                 //发送请求
-                channel.write(content);
-
+                f.channel().writeAndFlush(content+"\n");
+                logger.info("返送消息成功...");
             }
         } catch (Exception e) {
             e.printStackTrace();
-        }finally {
-            boss.shutdown();
-            worker.shutdown();
         }
     }
 
