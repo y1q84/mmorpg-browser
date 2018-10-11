@@ -52,7 +52,7 @@ public class BrowserSocket {
             //连接服务端
             ChannelFuture f=bootstrapToServer.connect("127.0.0.1", 11111).sync();
 
-            logger.info("浏览器启动...");
+            logger.info("浏览器启动成功...");
 
             Scanner input = new Scanner(System.in);
             while(true){
@@ -61,7 +61,7 @@ public class BrowserSocket {
                 String content=input.nextLine();
                 //发送请求
                 f.channel().writeAndFlush(content+"\n");
-                logger.info("返送消息成功...");
+                logger.info("消息发送成功...");
             }
         } catch (Exception e) {
             e.printStackTrace();
